@@ -91,9 +91,14 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profilim" element={<Dashboard />} />
           <Route path="/news" element={<Dashboard />} />
+          <Route path="/liked-news" element={<Dashboard />} />
           <Route path="/routes" element={<Dashboard />} />
           <Route path="/cards" element={<Dashboard />} />
+          <Route path="/wallet" element={<Dashboard />} />
+          <Route path="/payment-points" element={<Dashboard />} />
+          <Route path="/feedback" element={<Dashboard />} />
           <Route path="/history" element={<Dashboard />} />
+          <Route path="/debug" element={<Dashboard />} />
           
           {/* Redirect to login if no route matches */}
           <Route path="/" element={<Navigate to="/login" replace />} />

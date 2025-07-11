@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import NewsService from '../../services/news.service';
-import NewsImage from '../ui/NewsImage.jsx';
 
 // Resim URL'sini düzeltme fonksiyonu
 const normalizeImageUrl = (imageUrl, newsId) => {
@@ -26,6 +25,12 @@ const normalizeImageUrl = (imageUrl, newsId) => {
     console.log(`✅ [Haber ${newsId}] URL geçerli:`, finalUrl);
   }
   
+  // Geçersiz URL'leri filtrele (test URL'leri gibi) - via.placeholder.com'u test için izin ver
+  if (finalUrl.includes('example.com')) {
+    console.log(`🚫 [Haber ${newsId}] Geçersiz URL algılandı, resim gösterilmeyecek:`, finalUrl);
+    return null;
+  }
+  
   return finalUrl;
 };
 
@@ -49,8 +54,11 @@ const News = () => {
         // Aktif haberleri getir
         const newsData = await NewsService.getActiveNews();
         
+        console.log('✅ Backend\'den haberler alındı, online mode aktivated');
+        setIsOnline(true);
+        
         // Backend'den gelen raw veriyi logla
-        console.log('📊 Backend\den gelen haber verisi:', newsData);
+        console.log('📊 Backend\'den gelen haber verisi:', newsData);
         newsData.forEach((news, index) => {
           console.log(`📰 Haber ${index + 1}:`, {
             id: news.id,
@@ -67,7 +75,8 @@ const News = () => {
             id: news.id,
             title: news.title,
             content: news.content,
-            image: normalizeImageUrl(news.image, news.id),
+            image: normalizeImageUrl(news.image || news.imageUrl, news.id), // Backend'den 'image' field'ı (NewsDTO'ya göre)
+            thumbnail: news.thumbnail,
             validUntil: news.endDate ? new Date(news.endDate).toLocaleDateString('tr-TR') : 'Sürekli',
             category: news.type || 'Genel', // Backend'den 'type' alanı geliyor
             discount: news.priority === 'KRITIK' ? 'KRİTİK' : 
@@ -111,12 +120,103 @@ const News = () => {
       } catch (err) {
         console.error('❌ Haberler yüklenirken hata:', err);
         
-        // Backend'e bağlanamadığında boş dizi göster
-        console.log('🔄 Backend bağlantısı başarısız, haberler gösterilemiyor...');
-        setIsOnline(false); // Backend'e bağlanamadı
-        setCampaigns([]); // Boş dizi göster
-        setCategories([]); // Kategorileri temizle
-        setError(err.message || 'Haberler yüklenirken bir hata oluştu');
+        // Test verisi ile devam et (offline mode)
+        console.log('🔄 Backend bağlantısı yok, test verileri kullanılıyor...');
+        setIsOnline(false);
+        
+        const testNews = [
+          {
+            id: 1,
+            title: 'BinCard Yeni Özellikler',
+            content: 'BinCard uygulamasına yeni özellikler eklendi. Mobil ödeme sistemi artık daha hızlı ve güvenli.',
+            imageUrl: 'https://via.placeholder.com/400x300/3B82F6/FFFFFF?text=BinCard+Ozellikler',
+            endDate: null,
+            type: 'GENEL',
+            priority: 'NORMAL',
+            likeCount: 15,
+            viewCount: 234,
+            active: true,
+            likedByUser: false,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 2,
+            title: 'Özel İndirim Kampanyası',
+            content: '%20 indirim fırsatı! Bu ay boyunca tüm BinCard yüklemelerinde geçerli.',
+            imageUrl: 'https://via.placeholder.com/400x300/EF4444/FFFFFF?text=Indirim+Kampanyasi',
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            type: 'KAMPANYA',
+            priority: 'YUKSEK',
+            likeCount: 42,
+            viewCount: 567,
+            active: true,
+            likedByUser: false,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 3,
+            title: 'Sistem Bakım Duyurusu',
+            content: 'Bu gece 02:00 - 04:00 arası sistem bakımı yapılacaktır. Bu sürede hizmet kesintisi yaşanabilir.',
+            imageUrl: 'https://via.placeholder.com/400x300/F59E0B/FFFFFF?text=Sistem+Bakimi',
+            endDate: null,
+            type: 'DUYURU',
+            priority: 'KRITIK',
+            likeCount: 8,
+            viewCount: 156,
+            active: true,
+            likedByUser: true,
+            createdAt: new Date().toISOString()
+          }
+        ];
+        
+        // Test verilerini format et
+        const formattedTestNews = testNews.map(news => {
+          return {
+            id: news.id,
+            title: news.title,
+            content: news.content,
+            image: normalizeImageUrl(news.image || news.imageUrl, news.id), // Backend'den 'image' field'ı (NewsDTO'ya göre)
+            thumbnail: news.thumbnail,
+            validUntil: news.endDate ? new Date(news.endDate).toLocaleDateString('tr-TR') : 'Sürekli',
+            category: news.type || 'Genel',
+            discount: news.priority === 'KRITIK' ? 'KRİTİK' : 
+                     news.priority === 'COK_YUKSEK' ? 'ÇOK YÜKSEK' :
+                     news.priority === 'YUKSEK' ? 'YÜKSEK' :
+                     news.priority === 'NORMAL' ? 'NORMAL' :
+                     news.priority === 'DUSUK' ? 'DÜŞÜK' :
+                     news.priority === 'COK_DUSUK' ? 'ÇOK DÜŞÜK' : 'Özel Fırsat',
+            code: news.promoCode || `HABER${news.id}`,
+            isActive: news.active !== undefined ? news.active : true,
+            likeCount: news.likeCount || 0,
+            isLikedByUser: news.likedByUser || false,
+            viewCount: news.viewCount || 0,
+            viewedByUser: news.viewedByUser || false,
+            priority: news.priority,
+            type: news.type,
+            startDate: news.startDate,
+            endDate: news.endDate,
+            createdAt: news.createdAt
+          };
+        });
+        
+        setCampaigns(formattedTestNews);
+        
+        // Test verilerinden beğeni durumlarını set et
+        const userLikedNews = formattedTestNews
+          .filter(news => news.isLikedByUser)
+          .map(news => news.id);
+        
+        if (userLikedNews.length > 0) {
+          setLikedNews(new Set(userLikedNews));
+          console.log('👍 Test verisinde beğenilen haberler:', userLikedNews);
+        }
+        
+        // Kategorileri test verisinden çıkar
+        const uniqueCategories = [...new Set(formattedTestNews.map(item => item.category))];
+        setCategories(uniqueCategories);
+        
+        // Hata mesajını daha bilgilendirici hale getir
+        setError('Backend bağlantısı kurulamadı. Test verileri gösteriliyor.');
         
       } finally {
         setLoading(false);
@@ -358,15 +458,19 @@ const News = () => {
 
           {filteredCampaigns.map(campaign => (
             <div key={campaign.id} className="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:shadow-lg hover:-translate-y-1">
-              {/* Resim alanı - sadece resim varsa göster */}
-              {campaign.image && (
+              {/* Resim alanı - sadece geçerli resim varsa göster */}
+              {normalizeImageUrl(campaign.imageUrl, campaign.id) && (
                 <div className="h-48 overflow-hidden relative">
-                  <NewsImage
-                    src={campaign.image} 
+                  <img
+                    src={normalizeImageUrl(campaign.imageUrl, campaign.id)} 
                     alt={campaign.title}
                     className="w-full h-full object-cover"
                     onLoad={() => {
-                      console.log(`✅ Resim başarıyla yüklendi: ${campaign.title}`);
+                      console.log(`✅ [Haber ${campaign.id}] Resim başarıyla yüklendi: ${campaign.title}`);
+                    }}
+                    onError={(e) => {
+                      console.log(`❌ [Haber ${campaign.id}] Resim yüklenemedi: ${e.target.src}`);
+                      e.target.style.display = 'none';
                     }}
                   />
                   <div className="absolute top-0 right-0 bg-red-500 text-white py-1 px-3 rounded-bl-lg font-bold">

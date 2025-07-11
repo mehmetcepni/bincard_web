@@ -11,12 +11,12 @@ const NewsImage = ({ src, alt, className, onLoad, onError }) => {
   };
 
   const handleImageError = (e) => {
-    console.warn(`❌ Resim yüklenemedi: ${src}`);
+    console.log(`📷 Resim yüklenemedi, varsayılan resim gösteriliyor: ${src}`);
     setImageLoading(false);
     setImageError(true);
     
-    // Placeholder resim göster
-    const fallbackImage = 'https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3';
+    // Placeholder resim göster - haber temalı bir placeholder
+    const fallbackImage = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
     e.target.src = fallbackImage;
     e.target.onerror = null; // Infinite loop'u önle
     
