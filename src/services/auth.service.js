@@ -302,13 +302,53 @@ const AuthService = {
     }
   },
 
-  // SMS kodunu tekrar gönderme
+  // SMS kodunu tekrar gönderme (Register işlemi için)
   resendSmsCode: async (telephone) => {
     try {
-      const response = await axiosInstance.post('/resend-sms', { telephone });
+      console.log('[RESEND_SMS] Yeniden SMS kodu gönderiliyor:', telephone);
+      
+      // Telefon numarasını +90 ile başlat ve normalize et
+      let normalizedPhone = telephone;
+      if (!normalizedPhone.startsWith('+90')) {
+        normalizedPhone = '+90' + normalizedPhone.replace(/^0/, '');
+      }
+      
+      // Backend'in beklediği format: ResendPhoneVerificationRequest
+      const requestData = {
+        telephone: normalizedPhone,
+        // IP address ve User Agent backend tarafından otomatik ekleniyor
+      };
+      
+      console.log('[RESEND_SMS] Backend\'e gönderilecek veri:', requestData);
+      
+      // Kullanıcının belirttiği endpoint: POST /v1/api/auth/resend-verify-code?telephone=XXX
+      // Query parameter olarak telefon numarası gönderiliyor
+      const queryParams = new URLSearchParams({ telephone: normalizedPhone });
+      const response = await axios.post(`http://localhost:8080/v1/api/auth/resend-verify-code?${queryParams}`, requestData, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log('[RESEND_SMS] SMS kodu başarıyla gönderildi:', response.data);
       return response.data;
     } catch (error) {
-      return handleError(error);
+      console.error('[RESEND_SMS] SMS kodu gönderilemedi:', error);
+      
+      // Backend'den gelen hata mesajını öncelik ver
+      const backendMessage = error.response?.data?.message;
+      
+      // Özel hata durumları
+      if (error.response?.status === 404) {
+        // UserNotFoundException
+        throw new Error(backendMessage || 'Kullanıcı bulunamadı. Lütfen önce kayıt olun.');
+      } else if (error.response?.status === 400) {
+        // Geçersiz telefon numarası vb.
+        throw new Error(backendMessage || 'Geçersiz telefon numarası.');
+      } else if (error.response?.status === 429) {
+        // Rate limiting - çok fazla istek
+        throw new Error(backendMessage || 'Çok fazla istek gönderildi. Lütfen birkaç dakika bekleyin.');
+      }
+      
+      throw new Error(backendMessage || 'SMS kodu gönderilirken bir hata oluştu');
     }
   },
 
@@ -636,6 +676,100 @@ const AuthService = {
       // Tutarlı hata mesajı formatı için
       const errorMessage = error.message || 'Profil fotoğrafı güncellenirken bir hata oluştu.';
       throw new Error(errorMessage);
+    }
+  },
+
+  // Haber ekleme fonksiyonu (Admin işlemi)
+  addNews: async (newsData) => {
+    try {
+      console.log('[NEWS] Yeni haber ekleniyor:', newsData);
+      
+      // Girilen değerlerin boş olup olmadığını kontrol et
+      if (!newsData.title || !newsData.content) {
+        throw new Error('Başlık ve içerik alanları boş bırakılamaz!');
+      }
+      
+      // Backend'e gönderilecek veri formatı
+      const requestData = {
+        title: newsData.title,
+        content: newsData.content,
+        image: newsData.image || null,
+        priority: newsData.priority || 'NORMAL',
+        type: newsData.type || 'DUYURU',
+        endDate: newsData.endDate || null,
+        active: newsData.active !== undefined ? newsData.active : true
+      };
+      
+      console.log('[NEWS] Backend\'e gönderilecek haber verisi:', requestData);
+      
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum bulunamadı! Lütfen tekrar giriş yapın.');
+      }
+
+      console.log('[NEWS] Haber ekleme için HTTP isteği yapılıyor...');
+      
+      const response = await axios.post('http://localhost:8080/v1/api/news', requestData, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('[NEWS] Haber başarıyla eklendi:', response.data);
+      return response.data;
+      
+    } catch (error) {
+      console.error('[NEWS] Haber eklenemedi:', error);
+      
+      // API hatası durumunda hata mesajını döndür
+      const errorMessage = error.response?.data?.message || error.message || 'Haber eklenirken bir hata oluştu.';
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Login SMS doğrulama için tekrar kod gönderme (Yeni cihaz doğrulaması)
+  resendLoginSmsCode: async (telephone) => {
+    try {
+      console.log('[RESEND_LOGIN_SMS] Yeniden SMS kodu gönderiliyor (Login):', telephone);
+      
+      // Telefon numarasını +90 ile başlat ve normalize et
+      let normalizedPhone = telephone;
+      if (!normalizedPhone.startsWith('+90')) {
+        normalizedPhone = '+90' + normalizedPhone.replace(/^0/, '');
+      }
+      
+      // Backend'in beklediği format
+      const requestData = {
+        telephone: normalizedPhone,
+      };
+      
+      console.log('[RESEND_LOGIN_SMS] Backend\'e gönderilecek veri:', requestData);
+      
+      // Aynı resend endpoint'ini kullan - register ve login için aynı
+      const queryParams = new URLSearchParams({ telephone: normalizedPhone });
+      const response = await axios.post(`http://localhost:8080/v1/api/auth/resend-verify-code?${queryParams}`, requestData, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log('[RESEND_LOGIN_SMS] SMS kodu başarıyla gönderildi:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[RESEND_LOGIN_SMS] SMS kodu gönderilemedi:', error);
+      
+      // Backend'den gelen hata mesajını öncelik ver
+      const backendMessage = error.response?.data?.message;
+      
+      // Özel hata durumları
+      if (error.response?.status === 404) {
+        throw new Error(backendMessage || 'Kullanıcı bulunamadı.');
+      } else if (error.response?.status === 400) {
+        throw new Error(backendMessage || 'Geçersiz telefon numarası.');
+      } else if (error.response?.status === 429) {
+        throw new Error(backendMessage || 'Çok fazla istek gönderildi. Lütfen birkaç dakika bekleyin.');
+      }
+      
+      throw new Error(backendMessage || 'SMS kodu gönderilirken bir hata oluştu');
     }
   },
 };

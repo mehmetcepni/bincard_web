@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AuthService from '../../services/auth.service';
 
 const Profilim = () => {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', photoUrl: '' });
   const [photoPreview, setPhotoPreview] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
@@ -9,6 +11,7 @@ const Profilim = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [originalProfile, setOriginalProfile] = useState(null);
 
   // Profil bilgisini yükle
@@ -245,6 +248,39 @@ const Profilim = () => {
       setError(err.message || 'Profil güncellenemedi.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    
+    // Kullanıcıdan onay al
+    const confirmLogout = window.confirm('Çıkış yapmak istediğinizden emin misiniz?');
+    if (!confirmLogout) return;
+    
+    setIsLoggingOut(true);
+    
+    try {
+      // AuthService logout fonksiyonunu çağır
+      AuthService.logout();
+      
+      // Başarılı mesajı göster
+      setMessage('Başarıyla çıkış yapıldı. Yönlendiriliyorsunuz...');
+      
+      // Kısa bir süre bekle ve login sayfasına yönlendir
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { 
+            message: 'Başarıyla çıkış yapıldı.', 
+            type: 'success' 
+          } 
+        });
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Çıkış yapma hatası:', err);
+      setError('Çıkış yapılırken bir hata oluştu.');
+      setIsLoggingOut(false);
     }
   };
 
@@ -508,7 +544,7 @@ const Profilim = () => {
                 <button 
                   type="submit" 
                   className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px]" 
-                  disabled={saving}
+                  disabled={saving || isLoggingOut}
                 >
                   {saving ? (
                     <>
@@ -532,12 +568,37 @@ const Profilim = () => {
                   type="button" 
                   className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-60 flex items-center justify-center min-w-[140px]" 
                   onClick={handleCancel} 
-                  disabled={saving}
+                  disabled={saving || isLoggingOut}
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   İptal Et
+                </button>
+
+                {/* Çıkış Yapma Butonu */}
+                <button 
+                  type="button" 
+                  onClick={handleLogout}
+                  className="px-8 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px]" 
+                  disabled={saving || isLoggingOut}
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Çıkış Yapılıyor...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Çıkış Yap
+                    </>
+                  )}
                 </button>
               </div>
             </form>

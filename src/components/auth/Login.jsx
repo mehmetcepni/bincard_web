@@ -20,6 +20,7 @@ const Login = () => {
   const [pendingLogin, setPendingLogin] = useState(null);
   const [verifyCode, setVerifyCode] = useState('');
   const [form, setForm] = useState({ telephone: '', password: '' });
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     if (location.state?.message) {
@@ -33,13 +34,25 @@ const Login = () => {
   }, [location]);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // Input validation - telefon numarası için sadece sayılar
+    if (name === 'telephone') {
+      // Telefon numarası için sadece sayılar
+      const numberOnlyValue = value.replace(/[^0-9]/g, '');
+      setForm({ ...form, [name]: numberOnlyValue });
+    } else {
+      // Diğer alanlar için normal işlem
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const validate = () => {
     let err = '';
     if (!/^0[0-9]{10}$/.test(form.telephone)) {
       err = 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalı';
+    } else if (!/^[0-9]+$/.test(form.telephone)) {
+      err = 'Telefon numarası sadece sayılardan oluşmalı';
     } else if (!form.password || form.password.length < 6) {
       err = 'Şifre en az 6 karakter olmalı';
     }
@@ -61,7 +74,7 @@ const Login = () => {
       const response = await AuthService.login(telephone, form.password);
         if (response && response.newDevice) {
           setShowVerify(true);
-          setPendingLogin({ telephone });
+          setPendingLogin({ telephone }); // Normalize edilmiş telefon numarası (+ 90 formatında)
           toast.info('Yeni cihaz algılandı. Giriş için doğrulama kodu gönderildi.', {
           position: 'top-center',
           autoClose: 5000,
@@ -129,6 +142,39 @@ const Login = () => {
     }
   };
 
+  const handleResendSms = async () => {
+    if (isResending || isSubmitting || !pendingLogin?.telephone) return;
+    
+    setIsResending(true);
+    setError('');
+    
+    try {
+      // Login durumu için özel resend fonksiyonu kullan
+      const response = await AuthService.resendLoginSmsCode(pendingLogin.telephone);
+      if (response && response.success) {
+        toast.success('SMS kodu başarıyla tekrar gönderildi!', { 
+          position: 'top-center', 
+          autoClose: 3000 
+        });
+        toast.info('Yeni doğrulama kodunu telefonunuza gönderdik!', { 
+          position: 'top-center', 
+          autoClose: 5000 
+        });
+      } else {
+        throw new Error(response?.message || 'SMS kodu gönderilemedi');
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'SMS kodu gönderilemedi. Lütfen tekrar deneyin.';
+      setError(errorMessage);
+      toast.error(errorMessage, { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-300 p-4">
       <ToastContainer />
@@ -158,6 +204,14 @@ const Login = () => {
                 onChange={handleChange}
                 disabled={isSubmitting}
                 autoComplete="tel"
+                pattern="[0-9]*"
+                title="Sadece sayılar girebilirsiniz"
+                onKeyPress={(e) => {
+                  // Sadece sayılar
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
             <div>
@@ -225,6 +279,17 @@ const Login = () => {
               >
               {isSubmitting ? 'Doğrulanıyor...' : 'Doğrula ve Giriş Yap'}
             </button>
+            
+            {/* Tekrar SMS Kodu Gönder Butonu */}
+            <button
+              type="button"
+              className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={handleResendSms}
+              disabled={isResending || isSubmitting}
+            >
+              {isResending ? 'SMS Gönderiliyor...' : 'Tekrar SMS Kodu Gönder'}
+            </button>
+            
             <button
               type="button"
               className="w-full py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg shadow-md transition duration-150"

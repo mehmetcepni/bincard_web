@@ -4,14 +4,22 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Profilim from './Profilim.jsx';
 import News from './News.jsx';
+import LikedNews from './LikedNews.jsx';
+import Wallet from './Wallet.jsx';
+import Feedback from './Feedback.jsx';
+import PaymentPoints from './PaymentPoints.jsx';
 import TokenDebug from '../debug/TokenDebug.jsx';
 
   const menuItems = [
   { text: 'Ana Sayfa', icon: '🏠', path: 'dashboard', key: 'dashboard' },
   { text: 'Otobüs Seferleri', icon: '🚌', path: 'routes', key: 'routes' },
   { text: 'Kartlarım', icon: '💳', path: 'cards', key: 'cards' },
+  { text: 'Cüzdan', icon: '👛', path: 'wallet', key: 'wallet' },
+  { text: 'Ödeme Noktası', icon: '🏪', path: 'payment-points', key: 'payment-points' },
   { text: 'Geçmiş İşlemler', icon: '📜', path: 'history', key: 'history' },
   { text: 'Haberler', icon: '📰', path: 'news', key: 'news' },
+  { text: 'Beğendiğim Haberler', icon: '❤️', path: 'liked-news', key: 'liked-news' },
+  { text: 'Geri Bildirim', icon: '💬', path: 'feedback', key: 'feedback' },
   { text: 'Profilim', icon: '👤', path: 'profilim', key: 'profilim' },
   { text: 'Debug', icon: '🔧', path: 'debug', key: 'debug' },
   ];
@@ -44,6 +52,14 @@ const Dashboard = () => {
         return <Profilim />;
       case 'news':
         return <News />;
+      case 'liked-news':
+        return <LikedNews />;
+      case 'wallet':
+        return <Wallet />;
+      case 'feedback':
+        return <Feedback />;
+      case 'payment-points':
+        return <PaymentPoints />;
       case 'debug':
         return <TokenDebug />;
       case 'dashboard':
@@ -102,28 +118,58 @@ const Dashboard = () => {
 
 // Ana dashboard içeriği için ayrı component
 const DashboardHome = () => {
+  const navigate = useNavigate();
+  
   const cards = [
     {
       title: 'Bakiye',
       value: '₺150,00',
-    icon: '💰',
-      action: 'Bakiye Yükle',
+      icon: '💰',
+      action: 'Cüzdanı Aç',
       color: 'from-blue-600 to-blue-400',
+      onClick: () => navigate('/wallet')
     },
     {
       title: 'Aktif Biletler',
       value: '2 Bilet',
-    icon: '🎫',
+      icon: '🎫',
       action: 'Biletleri Görüntüle',
       color: 'from-green-400 to-blue-700',
+      onClick: () => navigate('/cards')
     },
     {
       title: 'Puanlar',
       value: '120',
-    icon: '⭐',
+      icon: '⭐',
       action: 'Puanları Kullan',
       color: 'from-yellow-400 to-yellow-200',
+      onClick: () => navigate('/cards')
     },
+  ];
+
+  // Hızlı erişim kısayolları
+  const quickActions = [
+    {
+      title: 'Ödeme Noktaları',
+      description: 'Yakınımdaki bakiye yükleme noktalarını bul',
+      icon: '🏪',
+      color: 'from-purple-500 to-purple-300',
+      onClick: () => navigate('/payment-points')
+    },
+    {
+      title: 'Geri Bildirim',
+      description: 'Deneyimini paylaş, önerilerini ilet',
+      icon: '💬',
+      color: 'from-green-500 to-green-300',
+      onClick: () => navigate('/feedback')
+    },
+    {
+      title: 'Haberler',
+      description: 'Kampanyalar ve özel fırsatları keşfet',
+      icon: '📰',
+      color: 'from-blue-500 to-blue-300',
+      onClick: () => navigate('/news')
+    }
   ];
 
   const recentTransactions = [
@@ -142,7 +188,11 @@ const DashboardHome = () => {
       {/* Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         {cards.map((card) => (
-          <div key={card.title} className={`rounded-xl shadow-md p-4 text-white bg-gradient-to-br ${card.color} flex flex-col items-start justify-between min-h-[120px]`}>
+          <div 
+            key={card.title} 
+            className={`rounded-xl shadow-md p-4 text-white bg-gradient-to-br ${card.color} flex flex-col items-start justify-between min-h-[120px] cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1`}
+            onClick={card.onClick}
+          >
             <div className="flex items-center mb-1">
               <span className="text-2xl mr-2">{card.icon}</span>
               <span className="text-base font-semibold tracking-tight">{card.title}</span>
@@ -151,6 +201,28 @@ const DashboardHome = () => {
             <button className="mt-auto px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-medium transition">{card.action}</button>
           </div>
         ))}
+      </section>
+
+      {/* Hızlı Erişim */}
+      <section className="mb-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">🚀 Hızlı Erişim</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {quickActions.map(action => (
+            <div 
+              key={action.title}
+              className={`bg-gradient-to-r ${action.color} text-white rounded-xl shadow-md p-4 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1`}
+              onClick={action.onClick}
+            >
+              <div className="flex items-start space-x-3">
+                <span className="text-2xl">{action.icon}</span>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">{action.title}</h3>
+                  <p className="text-white/80 text-sm">{action.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
       {/* Recent Transactions */}
       <section className="bg-white rounded-xl shadow-md p-4 w-full">

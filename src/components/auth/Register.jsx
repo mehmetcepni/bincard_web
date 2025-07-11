@@ -18,6 +18,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -26,12 +27,28 @@ const Register = () => {
   }, []);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // Input validation - sadece belirli karakterlere izin ver
+    if (name === 'firstName' || name === 'lastName') {
+      // Ad ve soyad için sadece harfler, Türkçe karakterler ve boşluk
+      const letterOnlyValue = value.replace(/[^a-zA-ZçğıöşüÇĞIİÖŞÜ\s]/g, '');
+      setForm({ ...form, [name]: letterOnlyValue });
+    } else if (name === 'telephone') {
+      // Telefon numarası için sadece sayılar
+      const numberOnlyValue = value.replace(/[^0-9]/g, '');
+      setForm({ ...form, [name]: numberOnlyValue });
+    } else {
+      // Diğer alanlar için normal işlem
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const validate = () => {
     if (!form.firstName || form.firstName.length < 2) return 'Ad en az 2 karakter olmalı';
+    if (!/^[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]+$/.test(form.firstName)) return 'Ad alanına sadece harf girebilirsiniz';
     if (!form.lastName || form.lastName.length < 2) return 'Soyad en az 2 karakter olmalı';
+    if (!/^[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]+$/.test(form.lastName)) return 'Soyad alanına sadece harf girebilirsiniz';
     if (!/^0[0-9]{10}$/.test(form.telephone)) return 'Telefon numarası 0 ile başlamalı ve 11 haneli olmalı';
     if (!form.password || form.password.length < 6) return 'Şifre en az 6 karakter olmalı';
     if (form.password !== form.confirmPassword) return 'Şifreler eşleşmiyor';
@@ -72,6 +89,38 @@ const Register = () => {
       toast.error(err.message || 'Kayıt işlemi başarısız oldu.', { position: 'top-center', autoClose: 5000 });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendSms = async () => {
+    if (isResending || isSubmitting) return;
+    
+    setIsResending(true);
+    setError('');
+    
+    try {
+      const response = await AuthService.resendSmsCode(form.telephone);
+      if (response && response.success) {
+        toast.success('SMS kodu başarıyla tekrar gönderildi!', { 
+          position: 'top-center', 
+          autoClose: 3000 
+        });
+        toast.info('Yeni doğrulama kodunu telefonunuza gönderdik!', { 
+          position: 'top-center', 
+          autoClose: 5000 
+        });
+      } else {
+        throw new Error(response?.message || 'SMS kodu gönderilemedi');
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'SMS kodu gönderilemedi. Lütfen tekrar deneyin.';
+      setError(errorMessage);
+      toast.error(errorMessage, { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -128,6 +177,14 @@ const Register = () => {
                   onChange={handleChange}
                   disabled={isSubmitting}
                   autoComplete="given-name"
+                  pattern="[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]*"
+                  title="Sadece harfler girebilirsiniz"
+                  onKeyPress={(e) => {
+                    // Sadece harfler, Türkçe karakterler ve boşluk
+                    if (!/[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                 />
               </div>
               <div>
@@ -141,6 +198,14 @@ const Register = () => {
                   onChange={handleChange}
                   disabled={isSubmitting}
                   autoComplete="family-name"
+                  pattern="[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]*"
+                  title="Sadece harfler girebilirsiniz"
+                  onKeyPress={(e) => {
+                    // Sadece harfler, Türkçe karakterler ve boşluk
+                    if (!/[a-zA-ZçğıöşüÇĞIİÖŞÜ\s]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -156,6 +221,14 @@ const Register = () => {
                 onChange={handleChange}
                 disabled={isSubmitting}
                 autoComplete="tel"
+                pattern="[0-9]*"
+                title="Sadece sayılar girebilirsiniz"
+                onKeyPress={(e) => {
+                  // Sadece sayılar
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,33 +308,67 @@ const Register = () => {
           </form>
         ) : (
           <form onSubmit={handleVerify} className="space-y-5">
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600">
+                <strong>{form.telephone}</strong> numarasına SMS doğrulama kodu gönderildi.
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Kod gelmedi mi? Aşağıdaki butonu kullanarak tekrar gönderebilirsiniz.
+              </p>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">SMS Doğrulama Kodu</label>
               <input
                 type="text"
                 name="verifyCode"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-base bg-white"
-                placeholder="Doğrulama kodu"
+                placeholder="6 haneli doğrulama kodunu girin"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 disabled={isSubmitting}
                 autoComplete="one-time-code"
+                maxLength="6"
               />
             </div>
+            
             <button
               type="submit"
               className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isResending}
             >
               {isSubmitting ? 'Doğrulanıyor...' : 'Doğrula ve Kayıt Ol'}
             </button>
+            
+            {/* Tekrar SMS Kodu Gönder Butonu */}
+            <button
+              type="button"
+              onClick={handleResendSms}
+              className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition duration-150 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+              disabled={isSubmitting || isResending}
+            >
+              {isResending ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  SMS Gönderiliyor...
+                </>
+              ) : (
+                <>
+                  📲 Tekrar SMS Kodu Gönder
+                </>
+              )}
+            </button>
+            
             <button
               type="button"
               className="w-full py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg shadow-md transition duration-150"
               onClick={() => setStep(0)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isResending}
             >
-              Geri Dön
+              ← Geri Dön
             </button>
           </form>
         )}

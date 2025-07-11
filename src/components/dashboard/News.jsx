@@ -6,11 +6,10 @@ import NewsImage from '../ui/NewsImage.jsx';
 const normalizeImageUrl = (imageUrl, newsId) => {
   console.log(`🔍 [Haber ${newsId}] Original imageUrl:`, imageUrl);
   
-  // Eğer backend'den resim gelmemişse veya geçersizse placeholder kullan
+  // Eğer backend'den resim gelmemişse veya geçersizse null döndür (boş bırak)
   if (!imageUrl || imageUrl === '' || imageUrl === null || imageUrl === undefined) {
-    const placeholderUrl = `https://images.unsplash.com/photo-${Math.floor(Math.random() * 1000000) + 1500000000000}?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3`;
-    console.log(`📷 [Haber ${newsId}] Placeholder kullanılıyor:`, placeholderUrl);
-    return placeholderUrl;
+    console.log(`📷 [Haber ${newsId}] Resim yok, boş bırakılıyor`);
+    return null;
   }
   
   let finalUrl = imageUrl;
@@ -68,13 +67,22 @@ const News = () => {
             id: news.id,
             title: news.title,
             content: news.content,
-            image: normalizeImageUrl(news.imageUrl, news.id),
+            image: normalizeImageUrl(news.image, news.id),
             validUntil: news.endDate ? new Date(news.endDate).toLocaleDateString('tr-TR') : 'Sürekli',
-            category: news.category || 'Genel',
-            discount: news.discount || 'Özel Fırsat',
+            category: news.type || 'Genel', // Backend'den 'type' alanı geliyor
+            discount: news.priority === 'KRITIK' ? 'KRİTİK' : 
+                     news.priority === 'COK_YUKSEK' ? 'ÇOK YÜKSEK' :
+                     news.priority === 'YUKSEK' ? 'YÜKSEK' :
+                     news.priority === 'NORMAL' ? 'NORMAL' :
+                     news.priority === 'DUSUK' ? 'DÜŞÜK' :
+                     news.priority === 'COK_DUSUK' ? 'ÇOK DÜŞÜK' : 'Özel Fırsat',
             code: news.promoCode || `HABER${news.id}`,
-            isActive: news.active,
+            isActive: news.active !== undefined ? news.active : true,
             likeCount: news.likeCount || 0,
+            isLikedByUser: news.likedByUser || false, // Backend'den gelen beğeni durumu
+            viewCount: news.viewCount || 0,
+            priority: news.priority,
+            type: news.type,
             startDate: news.startDate,
             endDate: news.endDate,
             createdAt: news.createdAt
@@ -83,7 +91,17 @@ const News = () => {
         
         setCampaigns(formattedNews);
         
-        // Kategorileri dinamik olarak çıkar
+        // Backend'den gelen beğeni durumlarını set et
+        const userLikedNews = formattedNews
+          .filter(news => news.isLikedByUser) // Backend'den likedByUser field'ı gelirse
+          .map(news => news.id);
+        
+        if (userLikedNews.length > 0) {
+          setLikedNews(new Set(userLikedNews));
+          console.log('👍 Kullanıcının beğendiği haberler:', userLikedNews);
+        }
+        
+        // Kategorileri dinamik olarak çıkar (type alanından)
         const uniqueCategories = [...new Set(formattedNews.map(item => item.category))];
         setCategories(uniqueCategories);
         
@@ -93,63 +111,16 @@ const News = () => {
       } catch (err) {
         console.error('❌ Haberler yüklenirken hata:', err);
         
-        // Kritik olmayan hata - örnek veriler göster
-        console.log('🔄 Backend bağlantısı başarısız, örnek veriler yükleniyor...');
+        // Backend'e bağlanamadığında boş dizi göster
+        console.log('🔄 Backend bağlantısı başarısız, haberler gösterilemiyor...');
         setIsOnline(false); // Backend'e bağlanamadı
-        loadSampleData();
-        
-        // Error state'ini set etme, böylece kullanıcı arayüzünde hata gösterilmez
-        // setError(err.message || 'Haberler yüklenirken bir hata oluştu');
+        setCampaigns([]); // Boş dizi göster
+        setCategories([]); // Kategorileri temizle
+        setError(err.message || 'Haberler yüklenirken bir hata oluştu');
         
       } finally {
         setLoading(false);
       }
-    };
-
-    // Örnek veri yükleme fonksiyonu (backend'e bağlanamadığında)
-    const loadSampleData = () => {
-      const sampleCampaigns = [
-        {
-          id: 1,
-          title: "Otobüs & Metro Kombine Bilette %20 İndirim",
-          content: "Aynı gün içinde otobüs ve metro kullanımlarında, ikinci biniş için %20 indirim fırsatını kaçırmayın! BinCard ile tüm hatlar geçerlidir.",
-          image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=2069&auto=format&fit=crop",
-          validUntil: "2025-08-31",
-          category: "Ulaşım",
-          discount: "20%",
-          code: "KOMBINE20",
-          isActive: true,
-          likeCount: 0
-        },
-        {
-          id: 2,
-          title: "Öğrenci Abonmanlarda Yaz İndirimi",
-          content: "Tüm öğrenci abonman ücretlerinde Temmuz ve Ağustos ayları boyunca %15 indirim. Yaz okulu öğrencileri için kaçırılmayacak fırsat!",
-          image: "https://images.unsplash.com/photo-1583118443607-9a8f2a0487e3?q=80&w=2070&auto=format&fit=crop",
-          validUntil: "2025-08-31",
-          category: "Öğrenci",
-          discount: "15%",
-          code: "YAZ2025",
-          isActive: true,
-          likeCount: 0
-        },
-        {
-          id: 3,
-          title: "Hafta Sonu Aile Paketi",
-          content: "Cumartesi ve Pazar günleri, aile kartı ile yapılan toplu taşıma seyahatlerinde, 4 kişiye kadar olan yolculuklarda maksimum ücret 30₺ olarak uygulanacaktır.",
-          image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=2070&auto=format&fit=crop",
-          validUntil: "2025-12-31",
-          category: "Aile",
-          discount: "Sabit Fiyat",
-          code: "AILE2025",
-          isActive: true,
-          likeCount: 0
-        }
-      ];
-      
-      setCampaigns(sampleCampaigns);
-      const uniqueCategories = [...new Set(sampleCampaigns.map(item => item.category))];
-      setCategories(uniqueCategories);
     };
 
     fetchNews();
@@ -157,9 +128,9 @@ const News = () => {
 
   // Haber beğenme fonksiyonu
   const handleLikeNews = async (newsId) => {
-    // Offline modda beğeni işlemi yapma
+    // Backend bağlantısı yoksa işlem yapma
     if (!isOnline) {
-      setError('Offline moddasınız. Beğeni işlemi için internet bağlantısı gerekli.');
+      setError('Backend bağlantısı bulunamadı. Beğeni işlemi yapılamıyor.');
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -178,7 +149,7 @@ const News = () => {
       // Başarılı ise beğeni durumunu güncelle
       setLikedNews(prev => new Set([...prev, newsId]));
       
-      // Kampanya listesindeki beğeni sayısını artır
+      // Haber listesindeki beğeni sayısını artır
       setCampaigns(prev => 
         prev.map(campaign => 
           campaign.id === newsId 
@@ -245,7 +216,7 @@ const News = () => {
     }
   };
 
-  // Filtreli kampanyaları getir
+  // Filtreli haberleri getir
   const filteredCampaigns = activeCategory === 'all' 
     ? campaigns 
     : campaigns.filter(campaign => campaign.category === activeCategory);
@@ -301,9 +272,32 @@ const News = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold text-blue-800 mb-4">Güncel Kampanyalar</h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <h1 className="text-2xl font-bold text-blue-800 mb-2 md:mb-0">Güncel Haberler</h1>
+            
+            {/* Beğendiğim Haberler Linki */}
+            <button 
+              onClick={() => {
+                // Dashboard içindeki liked-news sekmesine geç
+                const currentUrl = window.location.href;
+                if (currentUrl.includes('/news')) {
+                  window.location.href = window.location.href.replace('/news', '/liked-news');
+                } else {
+                  window.location.href = '/liked-news';
+                }
+              }}
+              className="flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              <span className="mr-2">❤️</span>
+              <span className="font-medium">Beğendiğim Haberler</span>
+              <span className="ml-2 bg-white bg-opacity-20 rounded-full px-2 py-1 text-xs">
+                {likedNews.size}
+              </span>
+            </button>
+          </div>
+          
           <p className="text-gray-600 mb-6">
-            BinCard'ınızla yararlanabileceğiniz özel indirim ve fırsatları keşfedin. Tüm kampanyalarımızı inceleyerek size en uygun fırsatı yakalayın.
+            BinCard'ınızla ilgili haberler ve duyuruları keşfedin. Tüm haberlerimizi inceleyerek güncel gelişmelerden haberdar olun.
           </p>
 
           {/* Backend Bağlantı Durumu */}
@@ -364,26 +358,41 @@ const News = () => {
 
           {filteredCampaigns.map(campaign => (
             <div key={campaign.id} className="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:shadow-lg hover:-translate-y-1">
-              <div className="h-48 overflow-hidden relative">
-                <NewsImage
-                  src={campaign.image} 
-                  alt={campaign.title}
-                  className="w-full h-full object-cover"
-                  onLoad={() => {
-                    console.log(`✅ Resim başarıyla yüklendi: ${campaign.title}`);
-                  }}
-                />
-                <div className="absolute top-0 right-0 bg-red-500 text-white py-1 px-3 rounded-bl-lg font-bold">
-                  {campaign.discount}
+              {/* Resim alanı - sadece resim varsa göster */}
+              {campaign.image && (
+                <div className="h-48 overflow-hidden relative">
+                  <NewsImage
+                    src={campaign.image} 
+                    alt={campaign.title}
+                    className="w-full h-full object-cover"
+                    onLoad={() => {
+                      console.log(`✅ Resim başarıyla yüklendi: ${campaign.title}`);
+                    }}
+                  />
+                  <div className="absolute top-0 right-0 bg-red-500 text-white py-1 px-3 rounded-bl-lg font-bold">
+                    {campaign.discount}
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent text-white p-3">
+                    <span className="text-sm font-medium">
+                      Son geçerlilik: {campaign.validUntil}
+                    </span>
+                  </div>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent text-white p-3">
-                  <span className="text-sm font-medium">
-                    Son geçerlilik: {campaign.validUntil}
-                  </span>
-                </div>
-              </div>
+              )}
               
               <div className="p-4">
+                {/* Resim yoksa, discount badge'i ve tarih bilgisini üst kısma ekle */}
+                {!campaign.image && (
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="bg-red-500 text-white py-1 px-3 rounded-lg font-bold text-sm">
+                      {campaign.discount}
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      Son geçerlilik: {campaign.validUntil}
+                    </span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-start mb-2">
                   <h2 className="text-lg font-bold text-gray-800 line-clamp-2">{campaign.title}</h2>
                 </div>
@@ -417,9 +426,9 @@ const News = () => {
                       <span>{campaign.likeCount || 0}</span>
                     </button>
                     
-                    {/* Kampanya Detay Butonu */}
+                    {/* Haber Detay Butonu */}
                     <button className="text-white bg-blue-600 hover:bg-blue-700 transition px-4 py-2 rounded-lg text-sm font-medium">
-                      Kampanyayı Gör
+                      Haberi Gör
                     </button>
                   </div>
                 </div>
@@ -434,14 +443,25 @@ const News = () => {
             <svg className="w-16 h-16 mx-auto text-blue-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Bu kategoride kampanya bulunamadı</h3>
-            <p className="text-gray-600 mb-4">Farklı bir kategori seçebilir veya daha sonra tekrar kontrol edebilirsiniz.</p>
-            <button 
-              onClick={() => setActiveCategory('all')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Tüm Kampanyaları Göster
-            </button>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              {activeCategory === 'all' ? 'Henüz haber bulunmuyor' : 'Bu kategoride haber bulunamadı'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {isOnline 
+                ? (activeCategory === 'all' 
+                   ? 'Backend\'den henüz haber gelmedi. Lütfen daha sonra tekrar kontrol edin.' 
+                   : 'Farklı bir kategori seçebilir veya daha sonra tekrar kontrol edebilirsiniz.')
+                : 'Backend bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.'
+              }
+            </p>
+            {activeCategory !== 'all' && (
+              <button 
+                onClick={() => setActiveCategory('all')}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Tüm Haberleri Göster
+              </button>
+            )}
           </div>
         )}
 
@@ -450,7 +470,7 @@ const News = () => {
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="mb-4 md:mb-0">
               <h3 className="text-xl font-bold mb-2">BinCard Mobil Uygulama İndirin</h3>
-              <p className="opacity-90">Kampanyalardan anında haberdar olmak ve özel fırsatları kaçırmamak için mobil uygulamayı indirin.</p>
+              <p className="opacity-90">Haberlerden anında haberdar olmak ve özel duyuruları kaçırmamak için mobil uygulamayı indirin.</p>
             </div>
             <div className="flex gap-3">
               <button className="bg-white text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50">

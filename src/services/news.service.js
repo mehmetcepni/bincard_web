@@ -188,7 +188,7 @@ const NewsService = {
     }
   },
 
-  // Haber beğen
+  // Haber beğen (POST) - yeni beğeni ekleme
   likeNews: async (newsId) => {
     try {
       console.log(`👍 Haber beğeniliyor: ${newsId}`);
@@ -198,31 +198,88 @@ const NewsService = {
     } catch (error) {
       console.error('❌ Haber beğenilemedi:', error);
       
-      // Özel hata mesajları
+      // Backend'den gelen hata mesajını öncelik ver
+      const backendMessage = error.response?.data?.message;
+      
+      // Backend exception'larına göre özel hata mesajları
       if (error.response?.status === 400) {
-        throw new Error(error.response?.data?.message || 'Bu haberi beğenme işlemi başarısız oldu');
+        throw new Error(backendMessage || 'Beğeni işlemi başarısız oldu');
       } else if (error.response?.status === 404) {
-        throw new Error('Haber bulunamadı');
+        // NewsNotFoundException
+        throw new Error(backendMessage || 'Haber bulunamadı');
+      } else if (error.response?.status === 403) {
+        // UserNotFoundException veya yetki hatası
+        throw new Error(backendMessage || 'Kullanıcı bulunamadı veya yetki hatası');
       } else if (error.response?.status === 410) {
-        throw new Error('Bu haber artık aktif değil');
+        // NewsIsNotActiveException
+        throw new Error(backendMessage || 'Bu haber artık aktif değil');
       } else if (error.response?.status === 408) {
-        throw new Error('Bu haberin süresi dolmuş');
+        // OutDatedNewsException
+        throw new Error(backendMessage || 'Bu haberin süresi dolmuş');
+      } else if (error.response?.status === 409) {
+        // Haber zaten beğenilmiş olabilir
+        throw new Error(backendMessage || 'Bu haber zaten beğenilmiş');
       }
       
-      throw new Error(error.response?.data?.message || 'Haber beğenilirken bir hata oluştu');
+      throw new Error(backendMessage || 'Haber beğenilirken bir hata oluştu');
     }
   },
 
-  // Haber beğenisini kaldır (eğer backend'de varsa)
+  // Haber beğenisini kaldır (DELETE) - mevcut beğeniyi kaldırma
   unlikeNews: async (newsId) => {
     try {
       console.log(`👎 Haber beğenisi kaldırılıyor: ${newsId}`);
-      const response = await axiosInstance.delete(`/v1/api/news/${newsId}/like`);
+      const response = await axiosInstance.delete(`/v1/api/news/${newsId}/unlike`);
       console.log('✅ Haber beğenisi başarıyla kaldırıldı:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Haber beğenisi kaldırılamadı:', error);
-      throw new Error(error.response?.data?.message || 'Haber beğenisi kaldırılırken bir hata oluştu');
+      
+      // Backend'den gelen hata mesajını öncelik ver
+      const backendMessage = error.response?.data?.message;
+      
+      // Backend exception'larına göre özel hata mesajları
+      if (error.response?.status === 400) {
+        throw new Error(backendMessage || 'Beğeni kaldırma işlemi başarısız oldu');
+      } else if (error.response?.status === 404) {
+        // NewsNotFoundException veya beğeni bulunamadı
+        throw new Error(backendMessage || 'Haber veya beğeni bulunamadı');
+      } else if (error.response?.status === 403) {
+        // UserNotFoundException veya yetki hatası
+        throw new Error(backendMessage || 'Kullanıcı bulunamadı veya yetki hatası');
+      } else if (error.response?.status === 410) {
+        // NewsIsNotActiveException
+        throw new Error(backendMessage || 'Bu haber artık aktif değil');
+      } else if (error.response?.status === 408) {
+        // OutDatedNewsException
+        throw new Error(backendMessage || 'Bu haberin süresi dolmuş');
+      } else if (error.response?.status === 409) {
+        // Beğeni zaten kaldırılmış olabilir
+        throw new Error(backendMessage || 'Bu haber zaten beğenilmemiş');
+      }
+      
+      throw new Error(backendMessage || 'Haber beğenisi kaldırılırken bir hata oluştu');
+    }
+  },
+
+  // Kullanıcının beğendiği haberleri getir
+  getLikedNews: async () => {
+    try {
+      console.log('❤️ Beğenilen haberler getiriliyor...');
+      const response = await axiosInstance.get('/v1/api/news/liked');
+      console.log('✅ Beğenilen haberler başarıyla getirildi:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Beğenilen haberler getirilemedi:', error);
+      
+      // Özel hata mesajları
+      if (error.response?.status === 404) {
+        throw new Error('Beğenilen haber bulunamadı');
+      } else if (error.response?.status === 401) {
+        throw new Error('Bu işlem için giriş yapmanız gerekli');
+      }
+      
+      throw new Error(error.response?.data?.message || 'Beğenilen haberler yüklenirken bir hata oluştu');
     }
   },
 
