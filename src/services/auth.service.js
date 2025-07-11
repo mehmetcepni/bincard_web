@@ -91,10 +91,24 @@ axiosInstance.interceptors.response.use(
       method: error.config?.method,
       headers: error.config?.headers
     });
+    
+    // 403 hataları için sadece kritik endpoint'lerde logout yap
     if (error.response?.status === 403) {
-      // Token geçersiz veya süresi dolmuş olabilir
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const isAuthEndpoint = error.config?.url?.includes('/auth/') || 
+                            error.config?.url?.includes('/login') || 
+                            error.config?.url?.includes('/register');
+      
+      if (isAuthEndpoint) {
+        // Sadece auth endpoint'lerinde token geçersizse logout yap
+        console.warn('🔐 Auth endpoint token geçersiz, logout yapılıyor');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+      } else {
+        // Diğer endpoint'lerde sadece uyarı ver
+        console.warn('🔐 Non-auth endpoint için 403 hatası, logout yapılmıyor');
+      }
     }
     return Promise.reject(error);
   }

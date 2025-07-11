@@ -9,8 +9,6 @@ import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import Dashboard from './components/dashboard/Dashboard';
-import Profilim from './components/dashboard/Profilim';
-import News from './components/dashboard/News';
 // import Profile from './components/dashboard/Profile';
 
 // Material UI teması
@@ -88,9 +86,14 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Dashboard routes - tüm dashboard sayfaları Dashboard component'i üzerinden yönetilir */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profilim" element={<Profilim />} />
-          <Route path="/news" element={<News />} />
+          <Route path="/profilim" element={<Dashboard />} />
+          <Route path="/news" element={<Dashboard />} />
+          <Route path="/routes" element={<Dashboard />} />
+          <Route path="/cards" element={<Dashboard />} />
+          <Route path="/history" element={<Dashboard />} />
           
           {/* Redirect to login if no route matches */}
           <Route path="/" element={<Navigate to="/login" replace />} />
